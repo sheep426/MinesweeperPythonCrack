@@ -156,6 +156,35 @@ class mine_obj():
         #调试的时候这句要关闭，要不attach上去的时候地址就被处理了
         ctypes.windll.kernel32.VirtualFreeEx(self.handle, arg_address, shellcode_length, MEM_DECOMMIT)
 
+    def revert_time(self):
+        '''
+        push ebp
+        mov ebp,esp
+        mov eax,0
+        mov [0x100579c],eax
+        mov esp,ebp
+        pop ebp
+        ret
+        '''
+        shellcode = b"\x55\x89\xE5\xB8\x00\x00\x00\x00\xA3\x9C\x57\x00\x01\x89\xEC\x5D\xC3"
+        self.run_shell_code(shellcode)
+
+    def run_shell_code(self,shellcode):
+        shellcode_length = len(shellcode) 
+        arg_address = self.allocate(self.handle,0,shellcode_length,VIRTUAL_MEM,PAGE_READWRITE)
+        whhh=self.write_buffer(self.handle,arg_address,shellcode,shellcode_length)
+
+        thread_id = ctypes.c_ulong(0)
+        thread =ctypes.windll.kernel32.CreateRemoteThread(self.handle,None,0,arg_address,None,0,ctypes.byref(thread_id))
+        if not thread:
+            raise Exception('Error: %s' %ctypes.GetLastError())
+        ctypes.windll.kernel32.WaitForSingleObject(thread,0xFFFFFFFF)
+        #一定要close要不会挂，暂时原因不知道
+        ctypes.windll.kernel32.CloseHandle(thread)
+        #调试的时候这句要关闭，要不attach上去的时候地址就被处理了
+        ctypes.windll.kernel32.VirtualFreeEx(self.handle, arg_address, shellcode_length, MEM_DECOMMIT)
+
+
     def auto_play(self):
         mine_dict = self.get_mine_list()
         col_count = self.get_col_data()
@@ -185,7 +214,8 @@ def injectDll(app_name=None):
 
     if found:
         mine_data = mine_obj(pid)
-        mine_data.auto_play()
+        mine_data.revert_time()
+        #mine_data.auto_play()
     else:
         print ("%s not found" % app_name)
 
