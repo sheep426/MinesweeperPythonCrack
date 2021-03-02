@@ -85,7 +85,6 @@ class mine_obj():
             raise Exception('Error: %s' %ctypes.GetLastError())
         return lpBuffer
 
-
     def write_buffer(self,hProcess, lpBaseAddress, lpBuffer, nSize):
         dwNumberOfBytesWritten = WriteProcessMemory.argtypes[-1]()
         #result = WriteProcessMemory(hProcess, lpBaseAddress, lpBuffer, nSize, ctypes.addressof(dwNumberOfBytesWritten))
@@ -94,15 +93,21 @@ class mine_obj():
             raise Exception('Error: %s' %ctypes.GetLastError())
         return result
 
-
     def stop_time(self):
         #6bytes
-        shellcode = "\x90\x90\x90\x90\x90\x90"
+        #这里应该要用virtualProtect来绕过dep的保护。但是不知道为什么不需要直接写入就可以了.
+        shellcode = b"\x90\x90\x90\x90\x90\x90"
         shellcode_length = 6
         game_time_add_asm_address = 0x1002FF5
-        arg_address = self.allocate(self.handle,game_time_add_asm_address,shellcode_length,VIRTUAL_MEM,PAGE_READWRITE)
-        whhh=self.write_buffer(self.handle,arg_address,shellcode,shellcode_length)
+        self.write_buffer(self.handle,game_time_add_asm_address,shellcode,shellcode_length)
 
+    def disable_bome(self):
+        #这里是把跳转去掉，增加了一个
+        #这里应该要用virtualProtect来绕过dep的保护。但是不知道为什么不需要直接写入就可以了.
+        shellcode = b"\x90\x90\x90\x90\x58"
+        shellcode_length = len(shellcode)
+        check_bome_asm_address = 0x10035AB
+        self.write_buffer(self.handle,check_bome_asm_address,shellcode,shellcode_length)
 
     def get_mine_list(self):
         mine_dict = {}
@@ -214,8 +219,11 @@ def injectDll(app_name=None):
 
     if found:
         mine_data = mine_obj(pid)
-        mine_data.revert_time()
+        print (mine_data.get_mine_list() )
+        #mine_data.revert_time()
         #mine_data.auto_play()
+        #mine_data.stop_time()
+        mine_data.disable_bome()
     else:
         print ("%s not found" % app_name)
 
